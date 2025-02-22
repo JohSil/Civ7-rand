@@ -80,11 +80,6 @@ function App() {
       newId = Math.max(...players.map((player) => player.id)) + 1;
     }
 
-    // Ensure the new ID is unique
-    while (players.some((player) => player.id === newId)) {
-      newId++;
-    }
-
     return newId;
   };
 
