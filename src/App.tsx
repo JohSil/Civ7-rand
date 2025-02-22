@@ -72,7 +72,7 @@ function App() {
   const [civCount, setCivCount] = useState(2);
   const [players, setPlayers] = useState<PlayerData[]>([]);
 
-  const generateUniqueId = () => {
+  const generateUniqueId = (players: PlayerData[]) => {
     let newId =
       players.length > 0
         ? Math.max(...players.map((player) => player.id)) + 1
@@ -87,7 +87,7 @@ function App() {
   };
 
   const addPlayer = () => {
-    const newId = generateUniqueId(); // Call the unique ID generator
+    const newId = generateUniqueId(players); // Pass the players array to the function
 
     const newPlayer = {
       id: newId,
