@@ -72,15 +72,22 @@ function App() {
   const [civCount, setCivCount] = useState(2);
   const [players, setPlayers] = useState<PlayerData[]>([]);
 
-  const addPlayer = () => {
+  const generateUniqueId = () => {
     let newId =
       players.length > 0
         ? Math.max(...players.map((player) => player.id)) + 1
         : 1;
 
+    // Ensure the new ID is unique
     while (players.some((player) => player.id === newId)) {
       newId++;
     }
+
+    return newId;
+  };
+
+  const addPlayer = () => {
+    const newId = generateUniqueId(); // Call the unique ID generator
 
     const newPlayer = {
       id: newId,
@@ -88,10 +95,10 @@ function App() {
       isEditing: false,
       selectedLeaders: LEADERS.filter(
         (_, index) => defaultLeaderSelections[index]
-      ),
+      ), // Use default selections
       selectedCivs: CIVILIZATIONS.filter(
         (_, index) => defaultCivSelections[index]
-      ),
+      ), // Use default selections
       assignedLeaders: [],
       assignedCivs: [],
     };
