@@ -2,7 +2,7 @@
   "name": "civ7-rand",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://johsil.github.io/civ7-rand",
+  "homepage": "https://johsil.github.io/Civ7-rand",
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
