@@ -39,6 +39,111 @@ export interface PlayerData {
   assignedCivs: string[];
 }
 
+interface SelectionTabsProps {
+  activePlayerIndex: number;
+  setActivePlayerIndex: (index: number) => void;
+  players: PlayerData[];
+}
+
+const SelectionTabs: React.FC<SelectionTabsProps> = ({
+  activePlayerIndex,
+  setActivePlayerIndex,
+  players,
+}) => (
+  <Tabs
+    value={activePlayerIndex}
+    onChange={(event, newValue) => setActivePlayerIndex(newValue)}
+  >
+    <Tab label="Default" />
+    {players.map((player) => (
+      <Tab key={player.id} label={player.name} />
+    ))}
+  </Tabs>
+);
+
+interface DefaultSelectionProps {
+  title: string;
+  items: string[];
+  selections: boolean[];
+  toggleSelection: (index: number) => void;
+}
+
+const DefaultSelection: React.FC<DefaultSelectionProps> = ({
+  title,
+  items,
+  selections,
+  toggleSelection,
+}) => (
+  <Box sx={{ p: 3 }}>
+    <Typography variant="h6" color="white">
+      {title}:
+    </Typography>
+    <Grid2 container spacing={1}>
+      {items.map((item, index) => (
+        <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={item}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={selections[index]}
+                onChange={() => toggleSelection(index)}
+              />
+            }
+            label={item}
+          />
+        </Grid2>
+      ))}
+    </Grid2>
+  </Box>
+);
+
+interface PlayerSelectionProps {
+  activePlayerIndex: number;
+  players: PlayerData[];
+  items: string[];
+  getSelectedItems: (player: PlayerData) => string[];
+  handleSelection: (
+    playerId: number,
+    item: string,
+    isSelected: boolean
+  ) => void;
+}
+
+const PlayerSelection: React.FC<PlayerSelectionProps> = ({
+  activePlayerIndex,
+  players,
+  items,
+  getSelectedItems,
+  handleSelection,
+}) => (
+  <Box>
+    {players.map((player, i) => (
+      <div key={player.id} role="tabpanel" hidden={activePlayerIndex !== i + 1}>
+        {activePlayerIndex === i + 1 && (
+          <Box sx={{ p: 3 }}>
+            <Grid2 container spacing={1}>
+              {items.map((item) => (
+                <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={item}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={getSelectedItems(player).includes(item)}
+                        onChange={(e) =>
+                          handleSelection(player.id, item, e.target.checked)
+                        }
+                      />
+                    }
+                    label={item}
+                  />
+                </Grid2>
+              ))}
+            </Grid2>
+          </Box>
+        )}
+      </div>
+    ))}
+  </Box>
+);
+
 function App() {
   const darkTheme = createTheme({
     palette: {
@@ -73,9 +178,8 @@ function App() {
   const [players, setPlayers] = useState<PlayerData[]>([]);
 
   const generateUniqueId = (players: PlayerData[]): number => {
-    let newId = 1; // Start with 1
+    let newId = 1;
 
-    // Find the maximum existing ID
     if (players.length > 0) {
       newId = Math.max(...players.map((player) => player.id)) + 1;
     }
@@ -84,7 +188,7 @@ function App() {
   };
 
   const addPlayer = () => {
-    const newId = generateUniqueId(players); // Pass the players array to the function
+    const newId = generateUniqueId(players);
 
     const newPlayer: PlayerData = {
       id: newId,
@@ -92,10 +196,10 @@ function App() {
       isEditing: false,
       selectedLeaders: LEADERS.filter(
         (_, index) => defaultLeaderSelections[index]
-      ), // Use default selections
+      ),
       selectedCivs: CIVILIZATIONS.filter(
         (_, index) => defaultCivSelections[index]
-      ), // Use default selections
+      ),
       assignedLeaders: [],
       assignedCivs: [],
     };
@@ -182,6 +286,7 @@ function App() {
   };
 
   const randomize = () => {
+    // Reset all assignments first
     setPlayers(
       players.map((player) => ({
         ...player,
@@ -190,77 +295,98 @@ function App() {
       }))
     );
 
-    let success = false;
-    let attempts = 0;
+    // Create a pool of available leaders and civs for each player
+    const playerPools = players.map((player) => ({
+      id: player.id,
+      leaderPool: [...player.selectedLeaders],
+      civPool: [...player.selectedCivs],
+    }));
 
-    while (!success && attempts < 100) {
-      attempts++;
-      const tempAssignments = new Map<
-        number,
-        { leaders: string[]; civs: string[] }
-      >();
-      const usedLeaders = new Set<string>();
-      const usedCivs = new Set<string>();
-      let valid = true;
+    // Shuffle each player's pools
+    playerPools.forEach((player) => {
+      // Fisher-Yates shuffle algorithm
+      for (let i = player.leaderPool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [player.leaderPool[i], player.leaderPool[j]] = [
+          player.leaderPool[j],
+          player.leaderPool[i],
+        ];
+      }
 
-      for (const player of players) {
-        const availableLeaders = LEADERS.filter(
-          (l) => player.selectedLeaders.includes(l) && !usedLeaders.has(l)
+      for (let i = player.civPool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [player.civPool[i], player.civPool[j]] = [
+          player.civPool[j],
+          player.civPool[i],
+        ];
+      }
+    });
+
+    // Track used items to avoid duplicates
+    const usedLeaders = new Set<string>();
+    const usedCivs = new Set<string>();
+
+    // Assign leaders and civs to each player
+    const assignments = new Map<
+      number,
+      { leaders: string[]; civs: string[] }
+    >();
+    let allAssignmentsValid = true;
+
+    for (const player of playerPools) {
+      const assignedLeaders: string[] = [];
+      const assignedCivs: string[] = [];
+
+      // Try to assign leaders
+      for (let i = 0; i < leaderCount; i++) {
+        // Find an unused leader from this player's pool
+        const availableLeader = player.leaderPool.find(
+          (l) => !usedLeaders.has(l)
         );
-        const availableCivs = CIVILIZATIONS.filter(
-          (c) => player.selectedCivs.includes(c) && !usedCivs.has(c)
-        );
 
-        if (
-          availableLeaders.length < leaderCount ||
-          availableCivs.length < civCount
-        ) {
-          valid = false;
+        if (availableLeader) {
+          assignedLeaders.push(availableLeader);
+          usedLeaders.add(availableLeader);
+        } else {
+          allAssignmentsValid = false;
           break;
         }
-
-        const selectedLeaders = [];
-        const selectedCivs = [];
-
-        for (let i = 0; i < leaderCount; i++) {
-          const leader = availableLeaders.splice(
-            Math.floor(Math.random() * availableLeaders.length),
-            1
-          )[0];
-          selectedLeaders.push(leader);
-          usedLeaders.add(leader);
-        }
-
-        for (let i = 0; i < civCount; i++) {
-          const civ = availableCivs.splice(
-            Math.floor(Math.random() * availableCivs.length),
-            1
-          )[0];
-          selectedCivs.push(civ);
-          usedCivs.add(civ);
-        }
-
-        tempAssignments.set(player.id, {
-          leaders: selectedLeaders,
-          civs: selectedCivs,
-        });
       }
 
-      if (valid) {
-        setPlayers(
-          players.map((player) => ({
-            ...player,
-            assignedLeaders: tempAssignments.get(player.id)?.leaders || [],
-            assignedCivs: tempAssignments.get(player.id)?.civs || [],
-          }))
-        );
-        success = true;
+      // Try to assign civs
+      for (let i = 0; i < civCount; i++) {
+        // Find an unused civ from this player's pool
+        const availableCiv = player.civPool.find((c) => !usedCivs.has(c));
+
+        if (availableCiv) {
+          assignedCivs.push(availableCiv);
+          usedCivs.add(availableCiv);
+        } else {
+          allAssignmentsValid = false;
+          break;
+        }
       }
+
+      assignments.set(player.id, {
+        leaders: assignedLeaders,
+        civs: assignedCivs,
+      });
+
+      if (!allAssignmentsValid) break;
     }
 
-    if (!success) {
+    if (allAssignmentsValid) {
+      // Apply the assignments to players
+      setPlayers(
+        players.map((player) => ({
+          ...player,
+          assignedLeaders: assignments.get(player.id)?.leaders || [],
+          assignedCivs: assignments.get(player.id)?.civs || [],
+        }))
+      );
+    } else {
       alert(
-        "Couldn't find valid combinations after 100 attempts. Try selecting more options or reducing the number of assignments!"
+        "Couldn't find valid combinations. Make sure each player has selected enough unique leaders and civilizations!"
       );
     }
   };
@@ -456,168 +582,58 @@ function App() {
             {/* Leaders Section */}
             {activeTab === 0 && (
               <Box>
-                <Tabs
-                  value={activePlayerIndex}
-                  onChange={(event, newValue) => setActivePlayerIndex(newValue)}
-                >
-                  <Tab label="Default" />
-                  {players.map((player) => (
-                    <Tab key={player.id} label={player.name} />
-                  ))}
-                </Tabs>
+                <SelectionTabs
+                  activePlayerIndex={activePlayerIndex}
+                  setActivePlayerIndex={setActivePlayerIndex}
+                  players={players}
+                />
 
-                {/* Default Leaders Section */}
                 {activePlayerIndex === 0 && (
-                  <Box sx={{ p: 3 }}>
-                    <Typography variant="h6" color="white">
-                      Default Leaders:
-                    </Typography>
-                    <Grid2 container spacing={1}>
-                      {LEADERS.map((leader, index) => (
-                        <Grid2
-                          size={{ xs: 12, sm: 6, md: 4, lg: 3 }}
-                          key={leader}
-                        >
-                          <FormControlLabel
-                            control={
-                              <Checkbox
-                                checked={defaultLeaderSelections[index]}
-                                onChange={() => toggleDefaultLeader(index)}
-                              />
-                            }
-                            label={leader}
-                          />
-                        </Grid2>
-                      ))}
-                    </Grid2>
-                  </Box>
+                  <DefaultSelection
+                    title="Default Leaders"
+                    items={LEADERS}
+                    selections={defaultLeaderSelections}
+                    toggleSelection={toggleDefaultLeader}
+                  />
                 )}
 
-                {/* Leaders Section for Other Players */}
                 {activePlayerIndex > 0 && (
-                  <Box>
-                    {players.map((player, i) => (
-                      <div
-                        key={player.id}
-                        role="tabpanel"
-                        hidden={activePlayerIndex !== i + 1}
-                      >
-                        {activePlayerIndex === i + 1 && (
-                          <Box sx={{ p: 3 }}>
-                            <Grid2 container spacing={1}>
-                              {LEADERS.map((leader) => (
-                                <Grid2
-                                  size={{ xs: 12, sm: 6, md: 4, lg: 3 }}
-                                  key={leader}
-                                >
-                                  <FormControlLabel
-                                    control={
-                                      <Checkbox
-                                        checked={player.selectedLeaders.includes(
-                                          leader
-                                        )}
-                                        onChange={(e) =>
-                                          handleLeaderSelection(
-                                            player.id,
-                                            leader,
-                                            e.target.checked
-                                          )
-                                        }
-                                      />
-                                    }
-                                    label={leader}
-                                  />
-                                </Grid2>
-                              ))}
-                            </Grid2>
-                          </Box>
-                        )}
-                      </div>
-                    ))}
-                  </Box>
+                  <PlayerSelection
+                    activePlayerIndex={activePlayerIndex}
+                    players={players}
+                    items={LEADERS}
+                    getSelectedItems={(player) => player.selectedLeaders}
+                    handleSelection={handleLeaderSelection}
+                  />
                 )}
               </Box>
             )}
 
-            {/* Civilizations Section */}
             {activeTab === 1 && (
               <Box>
-                <Tabs
-                  value={activePlayerIndex}
-                  onChange={(event, newValue) => setActivePlayerIndex(newValue)}
-                >
-                  <Tab label="Default" />
-                  {players.map((player) => (
-                    <Tab key={player.id} label={player.name} />
-                  ))}
-                </Tabs>
+                <SelectionTabs
+                  activePlayerIndex={activePlayerIndex}
+                  setActivePlayerIndex={setActivePlayerIndex}
+                  players={players}
+                />
 
-                {/* Default Civilizations Section */}
                 {activePlayerIndex === 0 && (
-                  <Box sx={{ p: 3 }}>
-                    <Typography variant="h6" color="white">
-                      Default Civilizations:
-                    </Typography>
-                    <Grid2 container spacing={1}>
-                      {CIVILIZATIONS.map((civ, index) => (
-                        <Grid2 size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={civ}>
-                          <FormControlLabel
-                            control={
-                              <Checkbox
-                                checked={defaultCivSelections[index]}
-                                onChange={() => toggleDefaultCiv(index)}
-                              />
-                            }
-                            label={civ}
-                          />
-                        </Grid2>
-                      ))}
-                    </Grid2>
-                  </Box>
+                  <DefaultSelection
+                    title="Default Civilizations"
+                    items={CIVILIZATIONS}
+                    selections={defaultCivSelections}
+                    toggleSelection={toggleDefaultCiv}
+                  />
                 )}
 
-                {/* Civilizations Section for Other Players */}
                 {activePlayerIndex > 0 && (
-                  <Box>
-                    {players.map((player, i) => (
-                      <div
-                        key={player.id}
-                        role="tabpanel"
-                        hidden={activePlayerIndex !== i + 1}
-                      >
-                        {activePlayerIndex === i + 1 && (
-                          <Box sx={{ p: 3 }}>
-                            <Grid2 container spacing={1}>
-                              {CIVILIZATIONS.map((civ) => (
-                                <Grid2
-                                  size={{ xs: 12, sm: 6, md: 4, lg: 3 }}
-                                  key={civ}
-                                >
-                                  <FormControlLabel
-                                    control={
-                                      <Checkbox
-                                        checked={player.selectedCivs.includes(
-                                          civ
-                                        )}
-                                        onChange={(e) =>
-                                          handleCivSelection(
-                                            player.id,
-                                            civ,
-                                            e.target.checked
-                                          )
-                                        }
-                                      />
-                                    }
-                                    label={civ}
-                                  />
-                                </Grid2>
-                              ))}
-                            </Grid2>
-                          </Box>
-                        )}
-                      </div>
-                    ))}
-                  </Box>
+                  <PlayerSelection
+                    activePlayerIndex={activePlayerIndex}
+                    players={players}
+                    items={CIVILIZATIONS}
+                    getSelectedItems={(player) => player.selectedCivs}
+                    handleSelection={handleCivSelection}
+                  />
                 )}
               </Box>
             )}
