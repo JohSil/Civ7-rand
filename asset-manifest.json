@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/Civ7-rand/static/css/main.e6c13ad2.css",
-    "main.js": "/Civ7-rand/static/js/main.b442ea21.js",
+    "main.js": "/Civ7-rand/static/js/main.08ad0952.js",
     "static/js/453.0c0a60a7.chunk.js": "/Civ7-rand/static/js/453.0c0a60a7.chunk.js",
     "index.html": "/Civ7-rand/index.html",
     "main.e6c13ad2.css.map": "/Civ7-rand/static/css/main.e6c13ad2.css.map",
-    "main.b442ea21.js.map": "/Civ7-rand/static/js/main.b442ea21.js.map",
+    "main.08ad0952.js.map": "/Civ7-rand/static/js/main.08ad0952.js.map",
     "453.0c0a60a7.chunk.js.map": "/Civ7-rand/static/js/453.0c0a60a7.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.e6c13ad2.css",
-    "static/js/main.b442ea21.js"
+    "static/js/main.08ad0952.js"
   ]
 }
